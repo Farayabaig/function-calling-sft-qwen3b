@@ -4,9 +4,35 @@ Supervised fine tuning that turns a small, 4 bit Qwen2.5 3B model into a reliabl
 
 Trained on a free Colab T4 with LoRA, then evaluated on examples it never saw during training.
 
+![Base vs fine tuned](results/base_vs_finetuned.png)
+
+## Before and after
+
+Same 200 held out examples, same prompt, same scoring code:
+
+| What is checked | Base Qwen2.5 3B | After fine tuning |
+| --- | --- | --- |
+| Usable tool calls (valid JSON in the expected format) | **0%** | **100%** |
+| Correct tool selected | 86.8%\* | **98.8%** |
+| Correct parameter names | 86.4%\* | **95.8%** |
+| Correct parameter values | **0%** | **85.5%** |
+
+\* The base model usually *knew* which tool to use, and the scorer gives credit when the tool name appears in free text. But not one of its 200 answers was a call an agent could execute: 156 invented their own `{"endpoint": ..., "params": ...}` shape and 167 were wrapped in Markdown code fences.
+
+Example, "What are the time zones in Europe?":
+
+~~~text
+Base model:  ```json {"endpoint": "get_time_zones", "params": {"keyword": "Europe"}} ```
+Expected:    [{"name": "get_time_zones", "arguments": {"keyword": "europe"}}]
+~~~
+
+**Fine tuning turned a model that understood the request into one that produces exact, executable tool calls.**
+
+How the base model was run: [`eval/eval_base.py`](eval/eval_base.py) rebuilds the notebook's exact test split and prompt, runs `Qwen2.5-3B-Instruct` as an 8 bit GGUF on CPU with llama.cpp and greedy decoding, and scores with [`scoring.py`](scoring.py). Every prediction is saved in [`results/base_model_predictions.jsonl`](results/base_model_predictions.jsonl). The fine tuned model was scored in 4 bit on a T4; this setup, if anything, favours the base model.
+
 ![Results](results/results.png)
 
-## Results
+## Fine tuned results in detail
 
 200 held out examples from [Salesforce/xlam-function-calling-60k](https://huggingface.co/datasets/Salesforce/xlam-function-calling-60k), checkpoint at step 1000:
 
@@ -87,7 +113,6 @@ The xLAM dataset is gated on Hugging Face, so accept its terms on the dataset pa
 
 ## Next steps
 
-- Score the base model with the same functions to show the before and after gain (the cell is in the notebook, commented out).
 - Evaluate on the full 500 example test split and on a different function calling benchmark.
 - Reduce parameter value errors with value normalisation hints in the tool descriptions.
 
@@ -96,6 +121,8 @@ The xLAM dataset is gated on Hugging Face, so accept its terms on the dataset pa
 ```text
 function_calling_sft_qwen3b.ipynb   training and evaluation notebook (Colab)
 scoring.py                          the four scoring functions
+eval/eval_base.py                   base model evaluation (CPU, llama.cpp)
+results/base_model_predictions.jsonl  every base model answer with its gold call
 results/eval_results.csv            scores per checkpoint
 results/training_loss.csv           loss per 100 steps
 results/*.png                       charts above
