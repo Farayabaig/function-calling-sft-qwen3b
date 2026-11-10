@@ -1,0 +1,5 @@
+checkpoint,valid_json_format,tool_name,param_names,param_values
+step-700,1.0,0.986,0.945458,0.836542
+step-800,0.995,0.9895,0.947708,0.835542
+step-900,0.995,0.9895,0.958292,0.847292
+step-1000,1.0,0.988,0.95825,0.855292
